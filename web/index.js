@@ -1,11 +1,15 @@
 import xs from 'xstream';
 import {run} from '@cycle/run';
-import {makeDOMDriver, div, h1, ul, li, img, label, button} from '@cycle/dom';
+import {makeDOMDriver, div, h1, ul, li, img, i, a, button} from '@cycle/dom';
 import {makeHTTPDriver} from '@cycle/http';
 
 import {makeFakeHTTPDriver} from './fake-http-driver';
 
 import 'reset-css';
+import 'jquery';
+import 'semantic-ui-css/semantic.min.css';
+
+import styles from './index.css';
 
 function intent(sources) {
     const load$ = sources.DOM.select('.reload').events('click')
@@ -22,12 +26,12 @@ function intent(sources) {
         );
 
     const like$ = sources.DOM.select('.like').events('click')
-        .map(event => Number(event.target.dataset.index));
+        .map(event => Number(event.currentTarget.dataset.index));
 
     const liked$ = sources.FAKE_HTTP.select('like$');
 
     const remove$ = sources.DOM.select('.remove').events('click')
-        .map(event => Number(event.target.dataset.index));
+        .map(event => Number(event.currentTarget.dataset.index));
 
     const removed$ = sources.FAKE_HTTP.select('remove$');
 
@@ -80,19 +84,28 @@ function model(actions) {
 
 function view(state$) {
     return state$.map(({photos}) =>
-        div([
-            h1('Cycle.js Spike'),
+        div('.ui.container', [
+            h1('.ui.header', 'Cycle.js Spike'),
             button('.reload', 'Reload'),
-            ul('.photo-list', photos.map((photo, index) =>
-                li('.photo', {style: {display: 'inline-block'}}, [
-                    div([
-                        photo.description,
-                        img({attrs: {src: photo.url, width: 200, height: 200}}),
+            ul('.photo-list.ui.four.cards', photos.map((photo, index) =>
+                li('.photo.ui.raised.card', {style: {display: 'inline-block'}}, [
+                    div(`.${styles.imageContainer}.ui.container`, [
+                        img('.ui.fluid.middle.aligned.rounded.image', {attrs: {src: photo.url}}),
                     ]),
-                    div([
-                        button('.like', {dataset: {index: String(index)}}, 'Like'),
-                        label(photo.likes),
-                        button('.remove', {dataset: {index: String(index)}}, 'Remove'),
+                    div('.content', [
+                        div('.header', photo.description),
+                    ]),
+                    div('.extra.content', [
+                        div('.like.ui.labeled.button', {dataset: {index: String(index)}}, [
+                            div('.ui.button', [
+                                i('.empty.heart.icon'),
+                                'Like'
+                            ]),
+                            a('.ui.basic.label', photo.likes),
+                        ]),
+                        button('.remove.ui.right.floated.circular.icon.button', {dataset: {index: String(index)}}, [
+                            i('.remove.icon'),
+                        ]),
                     ]),
                 ])
             )),
