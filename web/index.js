@@ -87,8 +87,8 @@ function view(state$) {
         div('.ui.container', [
             h1('.ui.header', 'Cycle.js Spike'),
             button('.reload', 'Reload'),
-            ul('.photo-list.ui.four.cards', photos.map((photo, index) =>
-                li('.photo.ui.raised.card', {style: {display: 'inline-block'}}, [
+            div('.photo-list.ui.four.cards', photos.map((photo, index) =>
+                div('.photo.ui.raised.card', [
                     div(`.${styles.imageContainer}.ui.container`, [
                         img('.ui.fluid.middle.aligned.rounded.image', {attrs: {src: photo.url}}),
                     ]),
