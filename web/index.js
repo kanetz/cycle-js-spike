@@ -1,18 +1,18 @@
 import xs from 'xstream';
 import {run} from '@cycle/run';
-import {makeDOMDriver, div, h1, ul, li, img, i, a, button} from '@cycle/dom';
+import {makeDOMDriver, div, h1, img, i, a, button} from '@cycle/dom';
 import {makeHTTPDriver} from '@cycle/http';
 
 import {makeFakeHTTPDriver} from './fake-http-driver';
 
 import 'reset-css';
-import 'jquery';
 import 'semantic-ui-css/semantic.min.css';
 
+import './common';
 import styles from './index.css';
 
 function intent(sources) {
-    const load$ = sources.DOM.select('.reload').events('click')
+    const load$ = sources.DOM.select(styles.reloadButton.toSelector()).events('click')
         .map(() => null)
         .startWith();
 
@@ -25,13 +25,21 @@ function intent(sources) {
             })),
         );
 
-    const like$ = sources.DOM.select('.like').events('click')
-        .map(event => Number(event.currentTarget.dataset.index));
+    const like$ = sources.DOM.select(styles.likeButton.toSelector())
+        .events('click')
+        .map(event => Number(event.currentTarget
+            .closest(styles.photo.toSelector())
+            .dataset.index)
+        );
 
     const liked$ = sources.FAKE_HTTP.select('like$');
 
-    const remove$ = sources.DOM.select('.remove').events('click')
-        .map(event => Number(event.currentTarget.dataset.index));
+    const remove$ = sources.DOM.select(styles.removeButton.toSelector())
+        .events('click')
+        .map(event => Number(event.currentTarget
+            .closest(styles.photo.toSelector())
+            .dataset.index)
+        );
 
     const removed$ = sources.FAKE_HTTP.select('remove$');
 
@@ -84,26 +92,28 @@ function model(actions) {
 
 function view(state$) {
     return state$.map(({photos}) =>
-        div('.ui.container', [
-            h1('.ui.header', 'Cycle.js Spike'),
-            button('.reload', 'Reload'),
-            div('.photo-list.ui.four.cards', photos.map((photo, index) =>
-                div('.photo.ui.raised.card', [
-                    div(`.${styles.imageContainer}.ui.container`, [
+        div(styles.photoAlbum.as('.ui.container'), [
+            h1(styles.photoAlbumHeader.as('.ui.header'), [
+                'Cycle.js Spike',
+                button(styles.reloadButton.as('.ui.right.floated.button'), 'Reload'),
+            ]),
+            div(styles.photoList.as('.ui.four.cards'), photos.map((photo, index) =>
+                div(styles.photo.as('.ui.raised.card'), {dataset: {index: String(index)}}, [
+                    div(styles.imageContainer.as('.ui.container'), [
                         img('.ui.fluid.middle.aligned.rounded.image', {attrs: {src: photo.url}}),
                     ]),
                     div('.content', [
                         div('.header', photo.description),
                     ]),
                     div('.extra.content', [
-                        div('.like.ui.labeled.button', {dataset: {index: String(index)}}, [
+                        div(styles.likeButton.as('.ui.labeled.button'), [
                             div('.ui.button', [
                                 i('.empty.heart.icon'),
                                 'Like'
                             ]),
                             a('.ui.basic.label', photo.likes),
                         ]),
-                        button('.remove.ui.right.floated.circular.icon.button', {dataset: {index: String(index)}}, [
+                        button(styles.removeButton.as('.ui.right.floated.circular.icon.button'), [
                             i('.remove.icon'),
                         ]),
                     ]),
