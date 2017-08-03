@@ -1,6 +1,6 @@
 import xs from 'xstream';
 import {run} from '@cycle/run';
-import {makeDOMDriver, div, h1, img, i, a, button} from '@cycle/dom';
+import {button, div, h1, makeDOMDriver} from '@cycle/dom';
 import {makeHTTPDriver} from '@cycle/http';
 
 import {makeFakeHTTPDriver} from './fake-http-driver';
@@ -10,6 +10,8 @@ import 'semantic-ui-css/semantic.min.css';
 
 import './common';
 import styles from './index.css';
+
+import PhotoList from './components/photo-list';
 
 function intent(sources) {
     const load$ = sources.DOM.select(styles.reloadButton.toSelector()).events('click')
@@ -25,24 +27,10 @@ function intent(sources) {
             })),
         }));
 
-    const like$ = sources.DOM.select(styles.likeButton.toSelector())
-        .events('click')
-        .map(event => ({
-            type: 'LIKE',
-            payload: Number(event.currentTarget.closest(styles.photo.toSelector()).dataset.index),
-        }));
-
     const liked$ = sources.FAKE_HTTP.select('like$')
         .map(payload => ({
             type: 'LIKED',
             payload,
-        }));
-
-    const remove$ = sources.DOM.select(styles.removeButton.toSelector())
-        .events('click')
-        .map(event => ({
-            type: 'REMOVE',
-            payload: Number(event.currentTarget.closest(styles.photo.toSelector()).dataset.index),
         }));
 
     const removed$ = sources.FAKE_HTTP.select('remove$')
@@ -54,9 +42,7 @@ function intent(sources) {
     return xs.merge(
         load$,
         loaded$,
-        like$,
         liked$,
-        remove$,
         removed$,
     );
 }
@@ -97,39 +83,6 @@ function model(action$) {
     return reducer$.fold((state, reducer) => reducer(state), {photos: []}).remember();
 }
 
-function view(state$) {
-    return state$.map(({photos}) =>
-        div(styles.photoAlbum.as('.ui.container'), [
-            h1(styles.photoAlbumHeader.as('.ui.header'), [
-                'Cycle.js Spike',
-                button(styles.reloadButton.as('.ui.right.floated.button'), 'Reload'),
-            ]),
-            div(styles.photoList.as('.ui.four.cards'), photos.map((photo, index) =>
-                div(styles.photo.as('.ui.raised.card'), {dataset: {index: String(index)}}, [
-                    div(styles.imageContainer.as('.ui.container'), [
-                        img('.ui.fluid.middle.aligned.rounded.image', {attrs: {src: photo.url}}),
-                    ]),
-                    div('.content', [
-                        div('.header', photo.description),
-                    ]),
-                    div('.extra.content', [
-                        div(styles.likeButton.as('.ui.labeled.button'), [
-                            div('.ui.button', [
-                                i('.empty.heart.icon'),
-                                'Like'
-                            ]),
-                            a('.ui.basic.label', photo.likes),
-                        ]),
-                        button(styles.removeButton.as('.ui.right.floated.circular.icon.button'), [
-                            i('.remove.icon'),
-                        ]),
-                    ]),
-                ])
-            )),
-        ]),
-    );
-}
-
 function request(actions) {
     return actions.filter(action => action.type === 'LOAD')
         .map(() => ({
@@ -158,13 +111,35 @@ function fakeRequest(actions) {
     );
 }
 
+function view(state$, photoListDOM$) {
+    return xs.combine(state$, photoListDOM$).map(([{photos}, photoListDOM]) =>
+        div(styles.photoAlbum.as('.ui.container'), [
+            h1(styles.photoAlbumHeader.as('.ui.header'), [
+                'Cycle.js Spike',
+                button(styles.reloadButton.as('.ui.right.floated.button'), 'Reload'),
+            ]),
+            photoListDOM,
+        ]),
+    );
+}
+
 function main(sources) {
-    const actions = intent(sources).debug('action$');
+    const actions = xs.create();
 
     const state$ = model(actions).debug('state$');
 
+    const {DOM: photoListDOM$, action$: photoListAction$} = PhotoList({
+        DOM: sources.DOM,
+        state$: state$.map(state => state.photos),
+    });
+
+    actions.imitate(xs.merge(
+        intent(sources),
+        photoListAction$,
+    ).debug('action$'));
+
     return {
-        DOM: view(state$).debug('vdom$'),
+        DOM: view(state$, photoListDOM$).debug('vdom$'),
         HTTP: request(actions).debug('request$'),
         FAKE_HTTP: fakeRequest(actions).debug('fakeRequest$'),
     };
