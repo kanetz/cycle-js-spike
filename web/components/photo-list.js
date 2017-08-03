@@ -1,5 +1,5 @@
 import xs from 'xstream';
-import {a, button, div, h1, i, img} from '@cycle/dom';
+import {a, button, div, i, img} from '@cycle/dom';
 
 import '../common';
 import styles from './photo-list.css';
@@ -25,8 +25,8 @@ function intent(domSource$) {
     );
 }
 
-function view(state$) {
-    return state$.map(photos =>
+function renderPhotoList(photos) {
+    return photos && photos.length ? (
         div(styles.photoList.as('.ui.four.cards'), photos.map((photo, index) =>
             div(styles.photo.as('.ui.raised.card'), {dataset: {index: String(index)}}, [
                 div(styles.imageContainer.as('.ui.container'), [
@@ -49,7 +49,16 @@ function view(state$) {
                 ]),
             ])
         ))
+    ) : (
+        div(styles.photoList.as('.ui.message'), [
+            i('.comment.outline.icon'),
+            'There are no photos to show for the moment.'
+        ])
     );
+}
+
+function view(state$) {
+    return state$.map(renderPhotoList);
 }
 
 export default function PhotoList(sources) {

@@ -80,7 +80,7 @@ function model(action$) {
         loadedReducer$,
     );
 
-    return reducer$.fold((state, reducer) => reducer(state), {photos: []}).remember();
+    return reducer$.fold((state, reducer) => reducer(state), {}).remember();
 }
 
 function request(actions) {
