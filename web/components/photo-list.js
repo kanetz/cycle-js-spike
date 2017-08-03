@@ -1,54 +1,14 @@
 import xs from 'xstream';
-import {a, button, div, i, img} from '@cycle/dom';
+import {div, i} from '@cycle/dom';
 
 import '../common';
 import styles from './photo-list.css';
 
-function intent(domSource$) {
-    const like$ = domSource$.select(styles.likeButton.toSelector())
-        .events('click')
-        .map(event => ({
-            type: 'LIKE',
-            payload: Number(event.currentTarget.closest(styles.photo.toSelector()).dataset.index),
-        }));
+import Photo from './photo';
 
-    const remove$ = domSource$.select(styles.removeButton.toSelector())
-        .events('click')
-        .map(event => ({
-            type: 'REMOVE',
-            payload: Number(event.currentTarget.closest(styles.photo.toSelector()).dataset.index),
-        }));
-
-    return xs.merge(
-        like$,
-        remove$,
-    );
-}
-
-function renderPhotoList(photos) {
+function renderPhotoList([photos, photoDOMs]) {
     return photos && photos.length ? (
-        div(styles.photoList.as('.ui.four.cards'), photos.map((photo, index) =>
-            div(styles.photo.as('.ui.raised.card'), {dataset: {index: String(index)}}, [
-                div(styles.imageContainer.as('.ui.container'), [
-                    img('.ui.fluid.middle.aligned.rounded.image', {attrs: {src: photo.url}}),
-                ]),
-                div('.content', [
-                    div('.header', photo.description),
-                ]),
-                div('.extra.content', [
-                    div(styles.likeButton.as('.ui.labeled.button'), [
-                        div('.ui.button', [
-                            i('.empty.heart.icon'),
-                            'Like'
-                        ]),
-                        a('.ui.basic.label', photo.likes),
-                    ]),
-                    button(styles.removeButton.as('.ui.right.floated.circular.icon.button'), [
-                        i('.remove.icon'),
-                    ]),
-                ]),
-            ])
-        ))
+        div(styles.photoList.as('.ui.four.cards'), photoDOMs)
     ) : (
         div(styles.photoList.as('.ui.message'), [
             i('.comment.outline.icon'),
@@ -57,17 +17,33 @@ function renderPhotoList(photos) {
     );
 }
 
-function view(state$) {
-    return state$.map(renderPhotoList);
+function view(state$, photoDOMs$) {
+    return xs.combine(state$, photoDOMs$)
+        .map(renderPhotoList);
 }
 
 export default function PhotoList(sources) {
-    const action$ = intent(sources.DOM).debug('photo-list.action$');
+    const state$ = sources.state$;
 
-    const state$ = sources.state$.debug('photo-list.state$');
+    const photoSinks$ = state$.map(photos =>
+        photos.map((photo, index) =>
+            Photo({
+                DOM: sources.DOM,
+                props: {index},
+                state$: state$.map(photos => ({index, photo: photos[index]})),
+            })
+        )
+    );
+
+    const photoDOMs$ = photoSinks$.map(photoSinks =>
+        xs.combine(...photoSinks.map(photoSink => photoSink.DOM))
+    ).flatten();
+    const photoAction$ = photoSinks$.map(photoSinks =>
+        xs.fromArray(photoSinks.map(photoSink => photoSink.action$)).flatten()
+    ).flatten();
 
     return {
-        DOM: view(state$).debug('photo-list.vdom$'),
-        action$,
+        DOM: view(state$, photoDOMs$),
+        action$: photoAction$,
     };
 }

@@ -20,9 +20,8 @@ function intent(sources) {
     const loaded$ = sources.HTTP.select('load$').flatten()
         .map(response => ({
             type: 'LOADED',
-            payload: response.body.map((photo, index) => ({
+            payload: response.body.map(photo => ({
                 ...photo,
-                index,
                 likes: Math.floor(100 + Math.random() * 900),
             })),
         }));
@@ -80,7 +79,7 @@ function model(action$) {
         loadedReducer$,
     );
 
-    return reducer$.fold((state, reducer) => reducer(state), {}).remember();
+    return reducer$.fold((state, reducer) => reducer(state), {photos: []}).remember();
 }
 
 function request(actions) {

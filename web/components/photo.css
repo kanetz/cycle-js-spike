@@ -1,0 +1,16 @@
+.photo {
+
+  .imageContainer {
+    padding: 5px;
+    height: 270px;
+    line-height: 260px;
+  }
+
+  .likeButton {
+
+  }
+
+  .removeButton {
+
+  }
+}
