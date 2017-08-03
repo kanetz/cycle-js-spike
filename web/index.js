@@ -13,73 +13,80 @@ import styles from './index.css';
 
 function intent(sources) {
     const load$ = sources.DOM.select(styles.reloadButton.toSelector()).events('click')
-        .map(() => null)
-        .startWith();
+        .mapTo({type: 'LOAD'});
 
     const loaded$ = sources.HTTP.select('load$').flatten()
-        .map(response =>
-            response.body.map((photo, index) => ({
+        .map(response => ({
+            type: 'LOADED',
+            payload: response.body.map((photo, index) => ({
                 ...photo,
                 index,
                 likes: Math.floor(100 + Math.random() * 900),
             })),
-        );
+        }));
 
     const like$ = sources.DOM.select(styles.likeButton.toSelector())
         .events('click')
-        .map(event => Number(event.currentTarget
-            .closest(styles.photo.toSelector())
-            .dataset.index)
-        );
+        .map(event => ({
+            type: 'LIKE',
+            payload: Number(event.currentTarget.closest(styles.photo.toSelector()).dataset.index),
+        }));
 
-    const liked$ = sources.FAKE_HTTP.select('like$');
+    const liked$ = sources.FAKE_HTTP.select('like$')
+        .map(payload => ({
+            type: 'LIKED',
+            payload,
+        }));
 
     const remove$ = sources.DOM.select(styles.removeButton.toSelector())
         .events('click')
-        .map(event => Number(event.currentTarget
-            .closest(styles.photo.toSelector())
-            .dataset.index)
-        );
+        .map(event => ({
+            type: 'REMOVE',
+            payload: Number(event.currentTarget.closest(styles.photo.toSelector()).dataset.index),
+        }));
 
-    const removed$ = sources.FAKE_HTTP.select('remove$');
+    const removed$ = sources.FAKE_HTTP.select('remove$')
+        .map(payload => ({
+            type: 'REMOVED',
+            payload,
+        }));
 
-    return Object.entries({
+    return xs.merge(
         load$,
         loaded$,
         like$,
         liked$,
         remove$,
         removed$,
-    }).reduce((actions, [name, action$]) => ({
-        ...actions,
-        [name]: action$.debug(name),
-    }), {});
+    );
 }
 
-function model(actions) {
-    const likedReducer$ = actions.liked$.map(index => state => ({
-        ...state,
-        photos: state.photos.map((photo, i) =>
-            i === index ? {
-                ...photo,
-                likes: photo.likes + 1,
-            } : photo
-        ),
-    }));
+function model(action$) {
+    const likedReducer$ = action$.filter(action => action.type === 'LIKED')
+        .map(action => state => ({
+            ...state,
+            photos: state.photos.map((photo, i) =>
+                i === action.payload ? {
+                    ...photo,
+                    likes: photo.likes + 1,
+                } : photo
+            ),
+        }));
 
-    const removedReducer$ = actions.removed$.map(index => state => ({
-        ...state,
-        photos: [
-            ...state.photos.slice(0, index),
-            ...state.photos.slice(index + 1),
-        ],
-    }));
+    const removedReducer$ = action$.filter(action => action.type === 'REMOVED')
+        .map(action => state => ({
+            ...state,
+            photos: [
+                ...state.photos.slice(0, action.payload),
+                ...state.photos.slice(action.payload + 1),
+            ],
+        }));
 
-    const loadedReducer$ = actions.loaded$.map(photos => state => ({
-        ...state,
-        photos,
-
-    }));
+    const loadedReducer$ = action$.filter(action => action.type === 'LOADED')
+        .map(action => state => ({
+            ...state,
+            photos: action.payload,
+        }));
 
     const reducer$ = xs.merge(
         likedReducer$,
@@ -87,7 +94,7 @@ function model(actions) {
         loadedReducer$,
     );
 
-    return reducer$.fold((state, reducer) => reducer(state), {photos: []});
+    return reducer$.fold((state, reducer) => reducer(state), {photos: []}).remember();
 }
 
 function view(state$) {
@@ -124,23 +131,26 @@ function view(state$) {
 }
 
 function request(actions) {
-    return actions.load$.map(() => ({
-        category: 'load$',
-        method: 'GET',
-        url: '/fake-data.json',
-    }));
+    return actions.filter(action => action.type === 'LOAD')
+        .map(() => ({
+            category: 'load$',
+            method: 'GET',
+            url: '/fake-data.json',
+        }));
 }
 
 function fakeRequest(actions) {
-    const likeRequest$ = actions.like$.map(index => ({
-        category: 'like$',
-        payload: index,
-    }));
+    const likeRequest$ = actions.filter(action => action.type === 'LIKE')
+        .map(action => ({
+            category: 'like$',
+            payload: action.payload,
+        }));
 
-    const removeRequest$ = actions.remove$.map(index => ({
-        category: 'remove$',
-        payload: index,
-    }));
+    const removeRequest$ = actions.filter(action => action.type === 'REMOVE')
+        .map(action => ({
+            category: 'remove$',
+            payload: action.payload,
+        }));
 
     return xs.merge(
         likeRequest$,
@@ -149,7 +159,7 @@ function fakeRequest(actions) {
 }
 
 function main(sources) {
-    const actions = intent(sources);
+    const actions = intent(sources).debug('action$');
 
     const state$ = model(actions).debug('state$');
 
