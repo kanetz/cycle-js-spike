@@ -1,4 +1,5 @@
 import xs from 'xstream';
+import delay from 'xstream/extra/delay';
 import {run} from '@cycle/run';
 import {button, div, h1, makeDOMDriver} from '@cycle/dom';
 import {makeHTTPDriver} from '@cycle/http';
@@ -47,6 +48,19 @@ function intent(sources) {
 }
 
 function model(action$) {
+    const loadReducer$ = action$.filter(action => action.type === 'LOAD')
+        .map(action => state => ({
+            ...state,
+            isLoading: true,
+        }));
+
+    const loadedReducer$ = action$.filter(action => action.type === 'LOADED')
+        .map(action => state => ({
+            ...state,
+            photos: action.payload,
+            isLoading: false,
+        }));
+
     const likedReducer$ = action$.filter(action => action.type === 'LIKED')
         .map(action => state => ({
             ...state,
@@ -67,23 +81,19 @@ function model(action$) {
             ],
         }));
 
-    const loadedReducer$ = action$.filter(action => action.type === 'LOADED')
-        .map(action => state => ({
-            ...state,
-            photos: action.payload,
-        }));
-
     const reducer$ = xs.merge(
+        loadReducer$,
+        loadedReducer$,
         likedReducer$,
         removedReducer$,
-        loadedReducer$,
     );
 
     return reducer$.fold((state, reducer) => reducer(state), {photos: []}).remember();
 }
 
-function request(actions) {
-    return actions.filter(action => action.type === 'LOAD')
+function request(action$) {
+    return action$.filter(action => action.type === 'LOAD')
+        .compose(delay(1500))
         .map(() => ({
             category: 'load$',
             method: 'GET',
@@ -91,14 +101,14 @@ function request(actions) {
         }));
 }
 
-function fakeRequest(actions) {
-    const likeRequest$ = actions.filter(action => action.type === 'LIKE')
+function fakeRequest(action$) {
+    const likeRequest$ = action$.filter(action => action.type === 'LIKE')
         .map(action => ({
             category: 'like$',
             payload: action.payload,
         }));
 
-    const removeRequest$ = actions.filter(action => action.type === 'REMOVE')
+    const removeRequest$ = action$.filter(action => action.type === 'REMOVE')
         .map(action => ({
             category: 'remove$',
             payload: action.payload,
@@ -111,11 +121,11 @@ function fakeRequest(actions) {
 }
 
 function view(state$, photoListDOM$) {
-    return xs.combine(state$, photoListDOM$).map(([{photos}, photoListDOM]) =>
+    return xs.combine(state$, photoListDOM$).map(([{photos, isLoading}, photoListDOM]) =>
         div(styles.photoAlbum.as('.ui.container'), [
             h1(styles.photoAlbumHeader.as('.ui.header'), [
                 'Cycle.js Spike',
-                button(styles.reloadButton.as('.ui.right.floated.button'), 'Reload'),
+                button(styles.reloadButton.as('.ui.right.floated.button'), {class: {loading: isLoading}}, 'Reload'),
             ]),
             photoListDOM,
         ]),
@@ -129,7 +139,7 @@ function main(sources) {
 
     const {DOM: photoListDOM$, action$: photoListAction$} = PhotoList({
         DOM: sources.DOM,
-        state$: state$.map(state => state.photos),
+        state$,
     });
 
     actions.imitate(xs.merge(

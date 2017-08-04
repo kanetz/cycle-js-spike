@@ -6,13 +6,22 @@ import styles from './photo-list.css';
 
 import Photo from './photo';
 
-function renderPhotoList([photos, photoDOMs]) {
+function renderPhotoList([{photos, isLoading}, photoDOMs]) {
+    if(isLoading) {
+        return (
+            div(styles.photoList.as('.ui.icon.message'), [
+                i('.notched.circle.loading.icon'),
+                'Loading photos...',
+            ])
+        );
+    }
+
     return photos && photos.length ? (
         div(styles.photoList.as('.ui.four.cards'), photoDOMs)
     ) : (
-        div(styles.photoList.as('.ui.message'), [
+        div(styles.photoList.as('.ui.icon.message'), [
             i('.comment.outline.icon'),
-            'There are no photos to show for the moment.'
+            'There are no photos to show for the moment.',
         ])
     );
 }
@@ -25,12 +34,12 @@ function view(state$, photoDOMs$) {
 export default function PhotoList(sources) {
     const state$ = sources.state$;
 
-    const photoSinks$ = state$.map(photos =>
-        photos.map((photo, index) =>
+    const photoSinks$ = state$.map(state =>
+        state.photos.map((photo, index) =>
             Photo({
                 DOM: sources.DOM.select(`[data-index="${index}"]`),
                 props: {index},
-                state$: state$.map(photos => ({index, photo: photos[index]})),
+                state$: state$.map(photos => ({index, photo: state.photos[index]})),
             })
         )
     );
