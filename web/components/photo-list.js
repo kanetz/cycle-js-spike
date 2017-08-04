@@ -28,7 +28,7 @@ export default function PhotoList(sources) {
     const photoSinks$ = state$.map(photos =>
         photos.map((photo, index) =>
             Photo({
-                DOM: sources.DOM,
+                DOM: sources.DOM.select(`[data-index="${index}"]`),
                 props: {index},
                 state$: state$.map(photos => ({index, photo: photos[index]})),
             })
@@ -39,7 +39,7 @@ export default function PhotoList(sources) {
         xs.combine(...photoSinks.map(photoSink => photoSink.DOM))
     ).flatten();
     const photoAction$ = photoSinks$.map(photoSinks =>
-        xs.fromArray(photoSinks.map(photoSink => photoSink.action$)).flatten()
+        xs.merge(...photoSinks.map(photoSink => photoSink.action$))
     ).flatten();
 
     return {
